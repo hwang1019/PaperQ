@@ -1,0 +1,46 @@
+# Project data files (conversation history, paper database)
+*.json
+
+# Documents
+*.doc
+*.docx
+*.pdf
+
+# Generated MATLAB scripts
+matlab_output/
+*.m
+
+# Environment & secrets
+.env
+*.key
+*_api_key*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Qwen exports
+qwen-code-export/
+qwen-code-export-*.json
+
+# Project conversation histories
+notebook_histories/
