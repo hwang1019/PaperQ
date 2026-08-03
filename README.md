@@ -76,3 +76,84 @@ By default it generates MATLAB code. Request Python explicitly for Kwant simulat
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+# PaperQ — 凝聚态物理 AI 研究助手
+
+一个基于 Jupyter Notebook 的 AI 助手，使用 DeepSeek API 分析学术论文、回答物理问题并生成 MATLAB 分析代码。专为低维半导体器件中的低温电子输运研究而设计。
+
+## 功能特性
+
+- **论文分析** — 上传 PDF 即可获得结构化文献综述，涵盖材料体系、器件结构、输运现象、数值结果和拟合模型。书目元数据（标题、作者、年份、DOI）自动从首页提取。
+
+- **多项目对话** — 将对话组织为命名项目。在研究主题之间自由切换，上下文不丢失。所有历史记录持久化保存并可重新加载。
+
+- **Markdown 显示** — 完整的对话历史和论文分析以格式化 Markdown 渲染，支持 LaTeX 公式在 Jupyter 中正确显示。
+
+- **论文数据库** — 所有分析的论文存储在可搜索数据库中。支持按材料、现象、年份范围或作者进行检索。可将论文召回至对话上下文中进行追问。
+
+- **MATLAB 代码生成** — 智能体生成独立的 `.m` 文件而非内联代码块。文件自动保存至 `matlab_output/` 并自动命名。
+
+- **BibTeX 导出** — 将数据库中的任意论文导出为 BibTeX 引用字符串。
+
+## 快速开始
+
+1. **安装依赖：**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **设置 API 密钥：**
+   ```bash
+   set DEEPSEEK_API_KEY=your-key-here
+   ```
+
+3. **打开 Notebook**，在 VS Code 或 Jupyter 中运行第一个单元格。
+
+4. **分析论文：**
+   ```python
+   analyze_paper()  # 提示你粘贴文件路径
+   ```
+
+5. **提出问题：**
+   ```python
+   ask("调制掺杂 GaAs 量子阱中迁移率的限制因素是什么？")
+   ```
+
+## 命令参考
+
+| 命令 | 描述 |
+|---------|-------------|
+| `analyze_paper()` | 分析 PDF（交互式粘贴路径） |
+| `new_project('name')` | 创建新项目 |
+| `switch_project('name')` | 切换到已有项目 |
+| `ask('question')` | 提问物理问题 |
+| `ask_matlab('question')` | 请求 MATLAB 代码 |
+| `ask_python('question')` | 请求 Python 代码 |
+| `list_papers()` | 列出数据库中所有论文 |
+| `search_papers(...)` | 按材料、现象、年份、作者检索 |
+| `recall_paper(n)` | 将论文加载到对话上下文 |
+| `display_paper(n)` | 以 Markdown 显示论文分析 |
+| `display_history()` | 以 Markdown 显示对话历史 |
+| `show_history()` | 以纯文本显示对话历史 |
+| `export_bibtex(n)` | 导出论文为 BibTeX |
+| `forget_paper()` | 从对话中移除论文上下文 |
+| `delete_paper(n)` | 从数据库中删除论文 |
+| `update_paper(n, field, val)` | 更新论文元数据 |
+
+## 系统提示词
+
+该助手被配置为凝聚态物理学家，专长领域包括：
+- 弱局域化 / 反弱局域化
+- 普适电导涨落
+- Shubnikov–de Haas 振荡与量子霍尔效应
+- 库仑阻塞
+- Landauer–Büttiker 理论
+- 非平衡格林函数
+
+默认生成 MATLAB 代码。如需进行 Kwant 模拟或机器学习任务，请明确请求 Python 代码。
+
+## 许可证
+
+MIT — 详见 [LICENSE](LICENSE)。
