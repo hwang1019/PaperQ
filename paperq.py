@@ -15,6 +15,7 @@ from pathlib import Path
 
 __all__ = [
     "startup",
+    "commands",
     "ask", "ask_matlab", "ask_python",
     "analyze_paper",
     "new_project", "switch_project", "list_projects", "clear_history",
@@ -114,22 +115,106 @@ def list_projects():
         print("No projects yet")
     return projects
 
-def switch_project(project_name):
-    '''Switch to another project'''
+def _match_projects(query):
+    """Return project names matching a query (case-insensitive substring)."""
+    projects = get_project_files()
+    if not projects:
+        return []
+    q = str(query).strip().lower()
+    if not q:
+        return projects
+    exact = [p for p in projects if p.lower() == q]
+    if exact:
+        return exact
+    return [p for p in projects if q in p.lower()]
+
+
+def commands(keyword=None):
+    """List available commands with brief descriptions (keyword filter optional).
+
+    Examples:
+      commands()             # show all commands
+      commands("project")    # only commands about projects
+      commands("matlab")     # only commands that generate MATLAB code
+    """
+    rows = []
+    kw = keyword.strip().lower() if isinstance(keyword, str) else ""
+    for name in __all__:
+        fn = globals().get(name)
+        doc = (getattr(fn, "__doc__", None) or "").strip()
+        desc = doc.splitlines()[0].strip() if doc else ""
+        if kw and kw not in name.lower() and kw not in desc.lower():
+            continue
+        rows.append((name, desc))
+    if not rows:
+        print(f"No commands match '{keyword}'. Available: {', '.join(__all__)}")
+        return []
+    width = max(len(name) for name, _ in rows)
+    for name, desc in rows:
+        print(f"  {name:<{width}}  {desc}")
+    return rows
+
+
+def switch_project(project_name=None):
+    """Switch to an existing project; partial names auto-complete.
+
+    Examples:
+      switch_project()            # list projects, then pick by number or name
+      switch_project("spin")      # auto-completes to "spin_orbit_coupling"
+    """
     global current_project, messages
     save_project()
+
+    if project_name is None:
+        projects = get_project_files()
+        if not projects:
+            display(Markdown("**No projects yet.** Use `new_project('name')` to create one."))
+            return
+        list_projects()
+        choice = input("Enter project number or name: ").strip()
+        if not choice:
+            return
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(projects):
+                project_name = projects[idx]
+            else:
+                display(Markdown("**❌ Invalid project number.**"))
+                return
+        else:
+            project_name = choice
+
+    matches = _match_projects(project_name)
+    if not matches:
+        display(Markdown(
+            f"**❌ No project matches '{project_name}'.** "
+            f"Use `new_project('{project_name}')` to create it."
+        ))
+        return
+
+    if len(matches) > 1:
+        display(Markdown(f"**Multiple projects match '{project_name}':**"))
+        for i, p in enumerate(matches, 1):
+            display(Markdown(f"  {i}. {p}"))
+        choice = input("Enter the number of the project to switch to: ").strip()
+        if not choice.isdigit() or not (1 <= int(choice) <= len(matches)):
+            display(Markdown("**❌ Invalid selection.**"))
+            return
+        project_name = matches[int(choice) - 1]
+    else:
+        project_name = matches[0]
+
     current_project = project_name
     messages = load_project(project_name)
     if not messages:
         messages = [
             {
-                "role":"system",
-                "content":DEFAULT_SYSTEM_PROMPT
+                "role": "system",
+                "content": DEFAULT_SYSTEM_PROMPT
             }
         ]
     display(Markdown(f"**✅ Switched to project: {current_project}**"))
     display(Markdown(f"📊 Current conversation: {len(messages)} messages"))
-
 def new_project(project_name):
     '''Create a new project'''
     global current_project, messages
@@ -1097,12 +1182,13 @@ def startup():
     print("\nCommands:")
     print("  analyze_paper()              - Analyze a PDF (pastes path interactively)")
     print("  new_project('name')          - Create new project")
-    print("  switch_project('name')       - Switch project")
+    print("  switch_project('name')       - Switch project (partial names OK)")
     print("  clear_history()              - Clear current chat")
     print("  show_history()               - Show chat history (plain text)")
     print("  display_history()            - Show chat history (Markdown)")
     print("  ask('your question')         - Ask a question (MATLAB code by default)")
     print("  ask('question', fast=True)    - Ask using the cheaper flash model")
+    print("  commands('keyword')         - List commands with descriptions")
     print("  ask_matlab('question')       - Explicitly request MATLAB code")
     print("  ask_python('question')       - Explicitly request Python code")
     print("  list_papers()                - List all papers in database")

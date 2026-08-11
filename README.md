@@ -48,7 +48,8 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
 |---------|-------------|
 | `analyze_paper()` | Analyze a PDF (paste path interactively) |
 | `new_project('name')` | Create a new project |
-| `switch_project('name')` | Switch to an existing project |
+| `commands('keyword')` | List commands with descriptions (keyword optional) |
+| `switch_project('name')` | Switch to a project (partial names auto-complete) |
 | `ask('question')` | Ask a physics question |
 | `ask_matlab('question')` | Request MATLAB code |
 | `ask_python('question')` | Request Python code |
@@ -131,7 +132,8 @@ MIT — see [LICENSE](LICENSE).
 |---------|-------------|
 | `analyze_paper()` | 分析 PDF（交互式粘贴路径） |
 | `new_project('name')` | 创建新项目 |
-| `switch_project('name')` | 切换到已有项目 |
+| `commands('keyword')` | 列出命令及说明（可按关键词筛选） |
+| `switch_project('name')` | 切换到已有项目（支持部分名称自动补全） |
 | `ask('question')` | 提问物理问题 |
 | `ask_matlab('question')` | 请求 MATLAB 代码 |
 | `ask_python('question')` | 请求 Python 代码 |
