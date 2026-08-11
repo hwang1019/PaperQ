@@ -40,6 +40,8 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
    ask("What limits mobility in modulation-doped GaAs quantum wells?")
    ```
 
+> **Project structure:** All agent logic lives in [`paperq.py`](paperq.py); `paper_q.ipynb` is a thin driver that imports it (`from paperq import *`, then `paperq.startup()`). The command names are unchanged.
+
 ## Commands
 
 | Command | Description |
@@ -120,6 +122,8 @@ MIT — see [LICENSE](LICENSE).
    ```python
    ask("调制掺杂 GaAs 量子阱中迁移率的限制因素是什么？")
    ```
+
+> **项目结构：** 所有智能体逻辑位于 [`paperq.py`](paperq.py)；`paper_q.ipynb` 是精简的驱动程序，导入该模块（`from paperq import *`，然后 `paperq.startup()`）。命令用法不变。
 
 ## 命令参考
 
