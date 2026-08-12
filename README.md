@@ -6,6 +6,8 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
 
 - **Paper Analysis** — Upload a PDF and get a structured literature review covering material system, device structure, transport phenomena, numerical results, and fitting models. Bibliographic metadata (title, authors, year, DOI) is extracted automatically from the first page.
 
+- **Manuscript Review** — Upload your own unpublished manuscript PDF for an honest, constructive review. The reviewer explains how to revise rather than rewriting text for you, unless you explicitly ask for an example.
+
 - **Multi-Project Chat** — Organize conversations into named projects. Switch between research topics without losing context. All history is persisted to disk and can be reloaded.
 
 - **Markdown Display** — Full conversation history and paper analyses render as formatted Markdown with proper LaTeX equation rendering in Jupyter.
@@ -47,6 +49,7 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
 | Command | Description |
 |---------|-------------|
 | `analyze_paper()` | Analyze a PDF (paste path interactively) |
+| `analyze_manuscript()` | Review an unpublished manuscript PDF |
 | `new_project('name')` | Create a new project |
 | `commands('keyword')` | List commands with descriptions (keyword optional) |
 | `switch_project('name')` | Switch to a project (partial names auto-complete) |
@@ -63,6 +66,15 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
 | `forget_paper()` | Remove paper context from chat |
 | `delete_paper(n)` | Delete a paper from database |
 | `update_paper(n, field, val)` | Update paper metadata |
+| `reanalyze_paper(n)` | Re-analyze an existing paper |
+| `list_manuscripts()` | List all manuscripts in database |
+| `search_manuscripts(...)` | Search manuscripts by criteria |
+| `recall_manuscript(n)` | Load a manuscript into chat |
+| `display_manuscript(n)` | Display manuscript review as Markdown |
+| `forget_manuscript()` | Remove manuscript context from chat |
+| `delete_manuscript(n)` | Delete a manuscript from database |
+| `update_manuscript(n, field, val)` | Update manuscript metadata |
+| `reanalyze_manuscript(n)` | Re-review an existing manuscript |
 
 ## System Prompt
 
@@ -75,6 +87,8 @@ The agent is configured as a condensed matter physicist specializing in:
 - Non-equilibrium Green's functions
 
 By default it generates MATLAB code. Request Python explicitly for Kwant simulations or ML tasks.
+
+For manuscript reviews, the agent is additionally instructed to be honest and constructive, to explain how to revise (not what to write), and not to rewrite prose unless you explicitly ask for an example.
 
 ## License
 
@@ -89,6 +103,8 @@ MIT — see [LICENSE](LICENSE).
 ## 功能特性
 
 - **论文分析** — 上传 PDF 即可获得结构化文献综述，涵盖材料体系、器件结构、输运现象、数值结果和拟合模型。书目元数据（标题、作者、年份、DOI）自动从首页提取。
+
+- **手稿审阅** — 上传您尚未发表的手稿 PDF，获得诚实、建设性的审阅。审阅者会说明如何修改，而不会替您重写文字，除非您明确要求提供示例。
 
 - **多项目对话** — 将对话组织为命名项目。在研究主题之间自由切换，上下文不丢失。所有历史记录持久化保存并可重新加载。
 
@@ -131,6 +147,7 @@ MIT — see [LICENSE](LICENSE).
 | 命令 | 描述 |
 |---------|-------------|
 | `analyze_paper()` | 分析 PDF（交互式粘贴路径） |
+| `analyze_manuscript()` | 审阅未发表的手稿 PDF |
 | `new_project('name')` | 创建新项目 |
 | `commands('keyword')` | 列出命令及说明（可按关键词筛选） |
 | `switch_project('name')` | 切换到已有项目（支持部分名称自动补全） |
@@ -147,6 +164,15 @@ MIT — see [LICENSE](LICENSE).
 | `forget_paper()` | 从对话中移除论文上下文 |
 | `delete_paper(n)` | 从数据库中删除论文 |
 | `update_paper(n, field, val)` | 更新论文元数据 |
+| `reanalyze_paper(n)` | 重新分析已有论文 |
+| `list_manuscripts()` | 列出数据库中所有手稿 |
+| `search_manuscripts(...)` | 按条件检索手稿 |
+| `recall_manuscript(n)` | 将手稿加载到对话上下文 |
+| `display_manuscript(n)` | 以 Markdown 显示手稿审阅 |
+| `forget_manuscript()` | 从对话中移除手稿上下文 |
+| `delete_manuscript(n)` | 从数据库中删除手稿 |
+| `update_manuscript(n, field, val)` | 更新手稿元数据 |
+| `reanalyze_manuscript(n)` | 重新审阅已有手稿 |
 
 ## 系统提示词
 
@@ -159,6 +185,8 @@ MIT — see [LICENSE](LICENSE).
 - 非平衡格林函数
 
 默认生成 MATLAB 代码。如需进行 Kwant 模拟或机器学习任务，请明确请求 Python 代码。
+
+审阅手稿时，助手还被要求保持诚实和建设性，说明“如何修改”而非“改写什么”，并且除非您明确要求提供示例，否则不会替您重写文字。
 
 ## 许可证
 
