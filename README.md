@@ -1,3 +1,11 @@
+<h1 align="center">PaperQ</h1>
+<p align="center"><b>AI Research Agent for Condensed Matter Physics</b> · <b>凝聚态物理 AI 研究助手</b></p>
+
+> 🌐 <b>Language / 语言</b> — expand the section in your language · 展开下方对应语言的章节
+
+<details open>
+<summary>🇬🇧 English</summary>
+
 # PaperQ — AI Research Agent for Condensed Matter Physics
 
 A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, answer physics questions, and generate MATLAB analysis code. Designed for low-temperature electron transport research in low-dimensional semiconductor devices.
@@ -42,7 +50,29 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
    ask("What limits mobility in modulation-doped GaAs quantum wells?")
    ```
 
-> **Project structure:** All agent logic lives in [`paperq.py`](paperq.py); `paper_q.ipynb` is a thin driver that imports it (`from paperq import *`, then `paperq.startup()`). The command names are unchanged.
+## Graphical Interface (GUI)
+
+A point-and-click interface is included — no web server or deployment needed.
+It runs locally on your machine and opens in your browser:
+
+```bash
+python app.py
+```
+
+This launches a Gradio app at `http://127.0.0.1:7860` with six tabs:
+
+- **Chat** — ask physics questions (streaming replies, LaTeX rendering, MATLAB files auto-saved).
+- **Analyze Paper** — drag-and-drop a published PDF for a structured review.
+- **Review Manuscript** — drag-and-drop an unpublished draft for a critique.
+- **Database** — browse papers/manuscripts: view, load into chat, export BibTeX, delete, or re-analyze / re-review.
+- **Projects** — switch between or create named projects (chat history is saved per project).
+- **Settings** — switch the interface between English and Chinese.
+
+Everything is stored in the same `paper_database.json`, `manuscript_database.json`, and `matlab_output/` folders as the notebook, so the two interfaces can be used interchangeably.
+
+> **Chat notes:** the current project name is shown above the conversation, and a **“Don't save to project”** checkbox keeps a chat private — checked turns stay in memory only and are never written to a project file. Only papers/manuscripts you explicitly **load into chat** are recorded in the conversation history.
+
+> **Project structure:** All agent logic lives in [`paperq.py`](paperq.py); `paper_q.ipynb` is a thin notebook driver (`from paperq import *`, then `paperq.startup()`), and [`app.py`](app.py) is a thin GUI driver that wraps the same functions. The command names are unchanged.
 
 ## Commands
 
@@ -94,7 +124,10 @@ For manuscript reviews, the agent is additionally instructed to be honest and co
 
 MIT — see [LICENSE](LICENSE).
 
----
+</details>
+
+<details>
+<summary>🇨🇳 中文</summary>
 
 # PaperQ — 凝聚态物理 AI 研究助手
 
@@ -140,7 +173,28 @@ MIT — see [LICENSE](LICENSE).
    ask("调制掺杂 GaAs 量子阱中迁移率的限制因素是什么？")
    ```
 
-> **项目结构：** 所有智能体逻辑位于 [`paperq.py`](paperq.py)；`paper_q.ipynb` 是精简的驱动程序，导入该模块（`from paperq import *`，然后 `paperq.startup()`）。命令用法不变。
+## 图形界面（GUI）
+
+仓库自带一个图形界面，无需 Web 服务器或部署，直接在本机运行并在浏览器中打开：
+
+```bash
+python app.py
+```
+
+它会在 `http://127.0.0.1:7860` 启动一个 Gradio 应用，包含六个标签页：
+
+- **对话（Chat）** — 提问物理问题（流式回复、LaTeX 公式渲染、自动保存 MATLAB 文件）。
+- **分析论文（Analyze Paper）** — 拖拽已发表论文 PDF 进行结构化综述。
+- **审阅手稿（Review Manuscript）** — 拖拽未发表草稿进行审阅。
+- **数据库（Database）** — 浏览论文/手稿：查看、加载到对话、导出 BibTeX、删除或重新分析 / 重新审阅。
+- **项目（Projects）** — 切换或创建命名项目（对话历史按项目保存）。
+- **设置（Settings）** — 在英文与中文界面之间切换。
+
+所有内容与 Notebook 一样存储在 `paper_database.json`、`manuscript_database.json` 和 `matlab_output/` 中，因此两种界面可以互换使用。
+
+> **对话说明：** 对话区上方会显示当前项目名称；勾选 **“不保存到项目”** 复选框可让对话保持私密——勾选后的对话仅保存在内存中，绝不写入项目文件。只有明确 **加载到对话** 的论文/手稿才会被记录到对话历史中。
+
+> **项目结构：** 所有智能体逻辑位于 [`paperq.py`](paperq.py)；`paper_q.ipynb` 是精简的 Notebook 驱动（`from paperq import *`，然后 `paperq.startup()`），[`app.py`](app.py) 是封装相同函数的精简 GUI 驱动。命令用法不变。
 
 ## 命令参考
 
@@ -191,3 +245,5 @@ MIT — see [LICENSE](LICENSE).
 ## 许可证
 
 MIT — 详见 [LICENSE](LICENSE)。
+
+</details>
