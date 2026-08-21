@@ -500,14 +500,17 @@ def _fmt_elapsed(secs: float) -> str:
     return f"{mm}:{ss:02d}"
 
 
-def _run_with_elapsed(work, label: str):
+def _run_with_elapsed(work, label: str, pack):
     """Run `work` in a background thread, streaming elapsed time to the UI.
 
     A generator: every 0.25 s while `work` is still running it yields
-    `label.format(elapsed=...)`, so the user sees a live count-up instead of a
-    frozen screen. When the worker finishes, the generator's return value is
-    `work()`'s result (raise the worker's exception if one occurred). Use it
-    with `yield from` inside the event handler.
+    `pack(label.format(elapsed=...))`. `pack` must return the *full* output
+    tuple for the Gradio event (e.g. a 2-tuple `(timer_line, output)`), so the
+    values yielded here always match the event's number of outputs.
+
+    When the worker finishes, the generator's return value is `work()`'s result
+    (raise the worker's exception if one occurred). Use it with `yield from`
+    inside the event handler.
 
     The analysis calls (paperq.analyze_paper / analyze_manuscript) block for
     30–60+ seconds while talking to the API, so they cannot stream progress
@@ -529,7 +532,7 @@ def _run_with_elapsed(work, label: str):
 
     while not state["done"]:
         time.sleep(0.25)
-        yield label.format(elapsed=_fmt_elapsed(time.monotonic() - started))
+        yield pack(label.format(elapsed=_fmt_elapsed(time.monotonic() - started)))
 
     if state["error"] is not None:
         raise state["error"]
@@ -572,6 +575,7 @@ def _analyze_paper(pdf):
         analysis = yield from _run_with_elapsed(
             lambda: paperq.analyze_paper(pdf_path=path),
             t("analyzing_elapsed"),
+            lambda status: (status, ""),
         )
     except Exception as exc:  # noqa: BLE001
         yield "", f"{t('error_prefix')} {exc}"
@@ -610,6 +614,7 @@ def _review_manuscript(pdf):
         critique = yield from _run_with_elapsed(
             lambda: paperq.analyze_manuscript(pdf_path=path),
             t("reviewing_elapsed"),
+            lambda status: (status, ""),
         )
     except Exception as exc:  # noqa: BLE001
         yield "", f"{t('error_prefix')} {exc}"
@@ -742,16 +747,18 @@ def _reanalyze_paper(choice: str, pdf):
         return
     n_before = len(paperq.messages)
     started = time.monotonic()
+    keep_dd = gr.update(choices=_paper_choices(), value=choice)
     try:
         analysis = yield from _run_with_elapsed(
             lambda: paperq.analyze_paper(pdf_path=str(Path(pdf)), replace_index=idx),
             t("analyzing_elapsed"),
+            lambda status: (keep_dd, status, ""),
         )
     except Exception as exc:  # noqa: BLE001
-        yield gr.update(choices=_paper_choices(), value=choice), "", f"{t('error_prefix')} {exc}"
+        yield keep_dd, "", f"{t('error_prefix')} {exc}"
         return
     if not analysis:
-        yield gr.update(choices=_paper_choices(), value=choice), "", t("analysis_failed")
+        yield keep_dd, "", t("analysis_failed")
         return
     _strip_analysis_record(n_before)
     title = paperq.paper_database[idx - 1].get("title", "?")
@@ -775,16 +782,18 @@ def _rereview_manuscript(choice: str, pdf):
         return
     n_before = len(paperq.messages)
     started = time.monotonic()
+    keep_dd = gr.update(choices=_manuscript_choices(), value=choice)
     try:
         critique = yield from _run_with_elapsed(
             lambda: paperq.analyze_manuscript(pdf_path=str(Path(pdf)), replace_index=idx),
             t("reviewing_elapsed"),
+            lambda status: (keep_dd, status, ""),
         )
     except Exception as exc:  # noqa: BLE001
-        yield gr.update(choices=_manuscript_choices(), value=choice), "", f"{t('error_prefix')} {exc}"
+        yield keep_dd, "", f"{t('error_prefix')} {exc}"
         return
     if not critique:
-        yield gr.update(choices=_manuscript_choices(), value=choice), "", t("review_failed")
+        yield keep_dd, "", t("review_failed")
         return
     _strip_analysis_record(n_before)
     title = paperq.manuscript_database[idx - 1].get("title", "?")
