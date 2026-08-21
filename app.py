@@ -12,6 +12,8 @@ wraps those functions with a graphical interface.
 """
 
 import os
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -108,11 +110,12 @@ STRINGS = {
         "rereview": "Re-review",
         "reanalyze_file_label": "PDF for re-analysis",
         "rereview_file_label": "PDF for re-review",
-        "projects_tab_desc": "Organize conversations into named projects. Switch or "
-                             "create a project — chat history is saved automatically "
-                             "and reloaded on switch.",
+        "projects_tab_desc": "Organize conversations into named projects. Selecting a project "
+                             "from the list switches to it instantly — chat history is saved "
+                             "automatically and reloaded on switch.",
         "project_dd_label": "Project",
         "switch_project": "Switch to project",
+        "switch_on_select_info": "The project switches as soon as you select it.",
         "create_project": "Create project",
         "new_project_label": "New project name",
         "new_project_placeholder": "e.g. quantum_hall",
@@ -177,6 +180,9 @@ STRINGS = {
         "loaded_context_ms": "📝 *Manuscript context loaded from the database.*",
         "dont_save": "Don't save to project",
         "dont_save_info": "When checked, this conversation is not written to the project.",
+        "analyzing_elapsed": "⏱ **Analyzing…** time elapsed: `{elapsed}`",
+        "reviewing_elapsed": "⏱ **Reviewing…** time elapsed: `{elapsed}`",
+        "completed_in": "⏱ Completed in {elapsed}",
     },
     "zh": {
         "app_title": "PaperQ — 凝聚态物理研究助手",
@@ -211,10 +217,11 @@ STRINGS = {
         "rereview": "重新审阅",
         "reanalyze_file_label": "重新分析的 PDF",
         "rereview_file_label": "重新审阅的 PDF",
-        "projects_tab_desc": "将对话组织为命名项目。切换或创建项目——对话历史会自动保存，"
-                             "切换时自动加载。",
+        "projects_tab_desc": "将对话组织为命名项目。从列表中选择项目即可立即切换——"
+                             "对话历史会自动保存，切换时自动加载。",
         "project_dd_label": "项目",
         "switch_project": "切换到项目",
+        "switch_on_select_info": "选择后立即切换项目。",
         "create_project": "创建项目",
         "new_project_label": "新项目名称",
         "new_project_placeholder": "例如：quantum_hall",
@@ -274,6 +281,9 @@ STRINGS = {
         "loaded_context_ms": "📝 *已从数据库加载手稿上下文。*",
         "dont_save": "不保存到项目",
         "dont_save_info": "勾选后，本次对话不会写入项目。",
+        "analyzing_elapsed": "⏱ **正在分析…** 已耗时：`{elapsed}`",
+        "reviewing_elapsed": "⏱ **正在审阅…** 已耗时：`{elapsed}`",
+        "completed_in": "⏱ 用时 {elapsed}",
     },
 }
 
@@ -483,6 +493,49 @@ def _clear_chat():
 # Analyze paper / Review manuscript
 # ============================================================
 
+def _fmt_elapsed(secs: float) -> str:
+    """Format a duration in seconds as 'm:ss'."""
+    secs = int(secs)
+    mm, ss = divmod(secs, 60)
+    return f"{mm}:{ss:02d}"
+
+
+def _run_with_elapsed(work, label: str):
+    """Run `work` in a background thread, streaming elapsed time to the UI.
+
+    A generator: every 0.25 s while `work` is still running it yields
+    `label.format(elapsed=...)`, so the user sees a live count-up instead of a
+    frozen screen. When the worker finishes, the generator's return value is
+    `work()`'s result (raise the worker's exception if one occurred). Use it
+    with `yield from` inside the event handler.
+
+    The analysis calls (paperq.analyze_paper / analyze_manuscript) block for
+    30–60+ seconds while talking to the API, so they cannot stream progress
+    themselves; running them in a daemon thread lets this generator keep
+    yielding updates and keeps the rest of the app responsive.
+    """
+    started = time.monotonic()
+    state = {"done": False, "value": None, "error": None}
+
+    def _worker():
+        try:
+            state["value"] = work()
+        except Exception as exc:  # noqa: BLE001
+            state["error"] = exc
+        finally:
+            state["done"] = True
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+    while not state["done"]:
+        time.sleep(0.25)
+        yield label.format(elapsed=_fmt_elapsed(time.monotonic() - started))
+
+    if state["error"] is not None:
+        raise state["error"]
+    return state["value"]
+
+
 def _strip_analysis_record(n_before: int):
     """Drop any chat-history messages appended by analyze_paper/analyze_manuscript.
 
@@ -495,44 +548,80 @@ def _strip_analysis_record(n_before: int):
         paperq.save_project()
 
 
-def _analyze_paper(pdf) -> str:
+def _analyze_paper(pdf):
+    """Analyze an uploaded paper PDF, streaming a live elapsed-time counter.
+
+    Yields (timer_line, output_markdown) so Gradio updates both the elapsed
+    timer and the analysis output while the API works in the background.
+    """
     if not pdf:
-        return t("upload_first")
+        yield "", t("upload_first")
+        return
     path = str(Path(pdf))
     fname = Path(path).name
 
     for i, p in enumerate(paperq.paper_database, 1):
         if p.get("filename") == fname:
-            return (_paper_markdown(i)
-                    + f"\n\n> ⚠️ {t('already_analyzed').format(idx=i)}")
+            yield "", (_paper_markdown(i)
+                       + f"\n\n> ⚠️ {t('already_analyzed').format(idx=i)}")
+            return
 
     n_before = len(paperq.messages)
-    analysis = paperq.analyze_paper(pdf_path=path)
+    started = time.monotonic()
+    try:
+        analysis = yield from _run_with_elapsed(
+            lambda: paperq.analyze_paper(pdf_path=path),
+            t("analyzing_elapsed"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        yield "", f"{t('error_prefix')} {exc}"
+        return
     if not analysis:
-        return t("analysis_failed")
+        yield "", t("analysis_failed")
+        return
     _strip_analysis_record(n_before)
     idx = len(paperq.paper_database)
-    return paperq._render(analysis) + f"\n\n---\n{t('saved_paper').format(idx=idx)}"
+    done = t("completed_in").format(elapsed=_fmt_elapsed(time.monotonic() - started))
+    yield done, (paperq._render(analysis)
+                 + f"\n\n---\n{t('saved_paper').format(idx=idx)}")
 
 
-def _review_manuscript(pdf) -> str:
+def _review_manuscript(pdf):
+    """Review an uploaded manuscript PDF, streaming a live elapsed-time counter.
+
+    Yields (timer_line, output_markdown) so Gradio updates both the elapsed
+    timer and the review output while the API works in the background.
+    """
     if not pdf:
-        return t("upload_first")
+        yield "", t("upload_first")
+        return
     path = str(Path(pdf))
     fname = Path(path).name
 
     for i, m in enumerate(paperq.manuscript_database, 1):
         if m.get("filename") == fname:
-            return (_manuscript_markdown(i)
-                    + f"\n\n> ⚠️ {t('already_reviewed').format(idx=i)}")
+            yield "", (_manuscript_markdown(i)
+                       + f"\n\n> ⚠️ {t('already_reviewed').format(idx=i)}")
+            return
 
     n_before = len(paperq.messages)
-    critique = paperq.analyze_manuscript(pdf_path=path)
+    started = time.monotonic()
+    try:
+        critique = yield from _run_with_elapsed(
+            lambda: paperq.analyze_manuscript(pdf_path=path),
+            t("reviewing_elapsed"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        yield "", f"{t('error_prefix')} {exc}"
+        return
     if not critique:
-        return t("review_failed")
+        yield "", t("review_failed")
+        return
     _strip_analysis_record(n_before)
     idx = len(paperq.manuscript_database)
-    return paperq._render(critique) + f"\n\n---\n{t('saved_manuscript').format(idx=idx)}"
+    done = t("completed_in").format(elapsed=_fmt_elapsed(time.monotonic() - started))
+    yield done, (paperq._render(critique)
+                 + f"\n\n---\n{t('saved_manuscript').format(idx=idx)}")
 
 
 # ============================================================
@@ -645,42 +734,66 @@ def _reanalyze_paper(choice: str, pdf):
     idx = _parse_index(choice)
     if not idx:
         gr.Warning(t("select_paper_view"), duration=None)
-        return gr.update(choices=_paper_choices(), value=None), t("select_paper_view")
+        yield gr.update(choices=_paper_choices(), value=None), "", t("select_paper_view")
+        return
     if not pdf:
         gr.Warning(t("upload_first"), duration=None)
-        return gr.update(choices=_paper_choices(), value=choice), t("upload_first")
+        yield gr.update(choices=_paper_choices(), value=choice), "", t("upload_first")
+        return
     n_before = len(paperq.messages)
-    analysis = paperq.analyze_paper(pdf_path=str(Path(pdf)), replace_index=idx)
+    started = time.monotonic()
+    try:
+        analysis = yield from _run_with_elapsed(
+            lambda: paperq.analyze_paper(pdf_path=str(Path(pdf)), replace_index=idx),
+            t("analyzing_elapsed"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        yield gr.update(choices=_paper_choices(), value=choice), "", f"{t('error_prefix')} {exc}"
+        return
     if not analysis:
-        return gr.update(choices=_paper_choices(), value=choice), t("analysis_failed")
+        yield gr.update(choices=_paper_choices(), value=choice), "", t("analysis_failed")
+        return
     _strip_analysis_record(n_before)
     title = paperq.paper_database[idx - 1].get("title", "?")
     choices = _paper_choices()
     value = choices[idx - 1] if 0 <= idx - 1 < len(choices) else None
     gr.Success(t("reanalyzed_paper").format(title=title),
                title=t("toast_reanalyzed_title"), duration=None)
-    return gr.update(choices=choices, value=value), paperq._render(analysis)
+    done = t("completed_in").format(elapsed=_fmt_elapsed(time.monotonic() - started))
+    yield gr.update(choices=choices, value=value), done, paperq._render(analysis)
 
 
 def _rereview_manuscript(choice: str, pdf):
     idx = _parse_index(choice)
     if not idx:
         gr.Warning(t("select_ms_view"), duration=None)
-        return gr.update(choices=_manuscript_choices(), value=None), t("select_ms_view")
+        yield gr.update(choices=_manuscript_choices(), value=None), "", t("select_ms_view")
+        return
     if not pdf:
         gr.Warning(t("upload_first"), duration=None)
-        return gr.update(choices=_manuscript_choices(), value=choice), t("upload_first")
+        yield gr.update(choices=_manuscript_choices(), value=choice), "", t("upload_first")
+        return
     n_before = len(paperq.messages)
-    critique = paperq.analyze_manuscript(pdf_path=str(Path(pdf)), replace_index=idx)
+    started = time.monotonic()
+    try:
+        critique = yield from _run_with_elapsed(
+            lambda: paperq.analyze_manuscript(pdf_path=str(Path(pdf)), replace_index=idx),
+            t("reviewing_elapsed"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        yield gr.update(choices=_manuscript_choices(), value=choice), "", f"{t('error_prefix')} {exc}"
+        return
     if not critique:
-        return gr.update(choices=_manuscript_choices(), value=choice), t("review_failed")
+        yield gr.update(choices=_manuscript_choices(), value=choice), "", t("review_failed")
+        return
     _strip_analysis_record(n_before)
     title = paperq.manuscript_database[idx - 1].get("title", "?")
     choices = _manuscript_choices()
     value = choices[idx - 1] if 0 <= idx - 1 < len(choices) else None
     gr.Success(t("rereviewed_ms").format(title=title),
                title=t("toast_reanalyzed_title"), duration=None)
-    return gr.update(choices=choices, value=value), paperq._render(critique)
+    done = t("completed_in").format(elapsed=_fmt_elapsed(time.monotonic() - started))
+    yield gr.update(choices=choices, value=value), done, paperq._render(critique)
 
 
 # ============================================================
@@ -698,6 +811,10 @@ def _current_project_md() -> str:
 def _switch_project(name: str):
     if not name:
         gr.Warning(t("select_project"), duration=None)
+        return _seed_visible_history(), _current_project_md(), _current_project_md()
+    if name == paperq.current_project:
+        # Already on this project (re-selected, or the create-project flow just
+        # switched to it); nothing to do beyond refreshing the visible state.
         return _seed_visible_history(), _current_project_md(), _current_project_md()
     _session_unsaved.clear()
     paperq.switch_project(name)
@@ -771,8 +888,7 @@ def _set_language(choice: str):
         gr.update(label=t("rereview_file_label")),                              # ms_re_file
         gr.update(value=t("rereview")),                                         # ms_re_btn
         gr.update(value=t("projects_tab_desc")),                                # proj_desc
-        gr.update(label=t("project_dd_label")),                                 # proj_dd
-        gr.update(value=t("switch_project")),                                   # switch_proj_btn
+        gr.update(label=t("project_dd_label"), info=t("switch_on_select_info")),  # proj_dd
         gr.update(value=t("refresh_projects")),                                 # refresh_proj_btn
         gr.update(label=t("new_project_label"), placeholder=t("new_project_placeholder")),  # new_proj_tb
         gr.update(value=t("create_project")),                                   # create_proj_btn
@@ -840,18 +956,20 @@ def build_app() -> gr.Blocks:
             paper_desc = gr.Markdown(t("paper_tab_desc"))
             paper_file = gr.File(label=t("paper_file_label"), file_types=[".pdf"], type="filepath")
             paper_btn = gr.Button(t("analyze_paper"), variant="primary")
+            paper_timer = gr.Markdown("")
             paper_out = gr.Markdown(latex_delimiters=LATEX_DELIMS)
 
-            paper_btn.click(_analyze_paper, paper_file, paper_out)
+            paper_btn.click(_analyze_paper, paper_file, [paper_timer, paper_out])
 
         # ---- Review Manuscript ----
         with gr.Tab("Review Manuscript · 审阅手稿"):
             ms_desc = gr.Markdown(t("ms_tab_desc"))
             ms_file = gr.File(label=t("ms_file_label"), file_types=[".pdf"], type="filepath")
             ms_btn = gr.Button(t("review_manuscript"), variant="primary")
+            ms_timer = gr.Markdown("")
             ms_out = gr.Markdown(latex_delimiters=LATEX_DELIMS)
 
-            ms_btn.click(_review_manuscript, ms_file, ms_out)
+            ms_btn.click(_review_manuscript, ms_file, [ms_timer, ms_out])
 
         # ---- Database ----
         with gr.Tab("Database · 数据库"):
@@ -873,6 +991,7 @@ def build_app() -> gr.Blocks:
                         paper_re_file = gr.File(label=t("reanalyze_file_label"),
                                                 file_types=[".pdf"], type="filepath")
                         paper_re_btn = gr.Button(t("reanalyze"))
+                    paper_re_timer = gr.Markdown("")
                     paper_view = gr.Markdown(latex_delimiters=LATEX_DELIMS)
                 with gr.Column():
                     ms_heading = gr.Markdown(t("manuscripts_heading"))
@@ -885,6 +1004,7 @@ def build_app() -> gr.Blocks:
                         ms_re_file = gr.File(label=t("rereview_file_label"),
                                              file_types=[".pdf"], type="filepath")
                         ms_re_btn = gr.Button(t("rereview"))
+                    ms_re_timer = gr.Markdown("")
                     ms_view = gr.Markdown(latex_delimiters=LATEX_DELIMS)
 
             refresh_btn.click(_refresh_lists, None, [paper_dd, ms_dd])
@@ -892,28 +1012,30 @@ def build_app() -> gr.Blocks:
             paper_load_btn.click(_load_paper, [paper_dd, chatbot], chatbot)
             paper_export_btn.click(_export_bibtex, paper_dd, paper_bibtex)
             paper_delete_btn.click(_delete_paper, paper_dd, [paper_dd, paper_view, paper_bibtex])
-            paper_re_btn.click(_reanalyze_paper, [paper_dd, paper_re_file], [paper_dd, paper_view])
+            paper_re_btn.click(_reanalyze_paper, [paper_dd, paper_re_file],
+                               [paper_dd, paper_re_timer, paper_view])
             ms_view_btn.click(_view_manuscript, ms_dd, ms_view)
             ms_load_btn.click(_load_manuscript, [ms_dd, chatbot], chatbot)
             ms_delete_btn.click(_delete_manuscript, ms_dd, [ms_dd, ms_view])
-            ms_re_btn.click(_rereview_manuscript, [ms_dd, ms_re_file], [ms_dd, ms_view])
+            ms_re_btn.click(_rereview_manuscript, [ms_dd, ms_re_file],
+                            [ms_dd, ms_re_timer, ms_view])
 
         # ---- Projects ----
         with gr.Tab("Projects · 项目"):
             proj_desc = gr.Markdown(t("projects_tab_desc"))
             proj_dd = gr.Dropdown(choices=_project_choices(), value=paperq.current_project,
-                                  label=t("project_dd_label"))
-            with gr.Row():
-                switch_proj_btn = gr.Button(t("switch_project"), variant="primary")
-                refresh_proj_btn = gr.Button(t("refresh_projects"))
+                                  label=t("project_dd_label"),
+                                  info=t("switch_on_select_info"))
+            refresh_proj_btn = gr.Button(t("refresh_projects"))
             cur_proj_md = gr.Markdown(_current_project_md())
             with gr.Row():
                 new_proj_tb = gr.Textbox(label=t("new_project_label"),
                                          placeholder=t("new_project_placeholder"), scale=3)
                 create_proj_btn = gr.Button(t("create_project"), scale=1)
 
-            switch_proj_btn.click(_switch_project, proj_dd,
-                                  [chatbot, cur_proj_md, chat_proj_md])
+            # Selecting a project from the list switches to it immediately.
+            proj_dd.change(_switch_project, proj_dd,
+                           [chatbot, cur_proj_md, chat_proj_md])
             refresh_proj_btn.click(
                 lambda: gr.update(choices=_project_choices(), value=paperq.current_project),
                 None, proj_dd)
@@ -943,7 +1065,7 @@ def build_app() -> gr.Blocks:
                 paper_dd, paper_view_btn, paper_load_btn, paper_export_btn,
                 paper_delete_btn, paper_re_file, paper_re_btn,
                 ms_dd, ms_view_btn, ms_load_btn, ms_delete_btn, ms_re_file, ms_re_btn,
-                proj_desc, proj_dd, switch_proj_btn, refresh_proj_btn,
+                proj_desc, proj_dd, refresh_proj_btn,
                 new_proj_tb, create_proj_btn, cur_proj_md,
                 settings_desc, lang_radio, footer_md,
             ],
