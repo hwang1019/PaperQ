@@ -16,6 +16,8 @@ A Jupyter notebook agent that uses the DeepSeek API to analyze academic papers, 
 
 - **Manuscript Review** — Upload your own unpublished manuscript PDF for an honest, constructive review. The reviewer explains how to revise rather than rewriting text for you, unless you explicitly ask for an example.
 
+- **Figure-Aware Analysis (Vision)** — Figures are rendered from the PDF and read by DeepSeek's vision model (`deepseek-v4-flash-vision-exp`), which transcribes captions, axis labels, units, and plot trends verbatim without interpreting them. These neutral descriptions are passed to the text model so it analyses figures alongside the body text instead of guessing from captions.
+
 - **Multi-Project Chat** — Organize conversations into named projects. Switch between research topics without losing context. All history is persisted to disk and can be reloaded.
 
 - **Markdown Display** — Full conversation history and paper analyses render as formatted Markdown with proper LaTeX equation rendering in Jupyter.
@@ -62,8 +64,8 @@ python app.py
 This launches a Gradio app at `http://127.0.0.1:7860` with six tabs:
 
 - **Chat** — ask physics questions (streaming replies, LaTeX rendering, MATLAB files auto-saved).
-- **Analyze Paper** — drag-and-drop a published PDF for a structured review.
-- **Review Manuscript** — drag-and-drop an unpublished draft for a critique.
+- **Analyze Paper** — drag-and-drop a published PDF for a structured review (figures are read via the vision model).
+- **Review Manuscript** — drag-and-drop an unpublished draft for a critique (figures are read via the vision model).
 - **Database** — browse papers/manuscripts: view, load into chat, export BibTeX, delete, or re-analyze / re-review.
 - **Projects** — switch between or create named projects (chat history is saved per project).
 - **Settings** — switch the interface between English and Chinese.
@@ -80,6 +82,7 @@ Everything is stored in the same `paper_database.json`, `manuscript_database.jso
 |---------|-------------|
 | `analyze_paper()` | Analyze a PDF (paste path interactively) |
 | `analyze_manuscript()` | Review an unpublished manuscript PDF |
+| `describe_figures('path.pdf')` | Extract figure descriptions via the vision model |
 | `new_project('name')` | Create a new project |
 | `commands('keyword')` | List commands with descriptions (keyword optional) |
 | `switch_project('name')` | Switch to a project (partial names auto-complete) |
@@ -139,6 +142,8 @@ MIT — see [LICENSE](LICENSE).
 
 - **手稿审阅** — 上传您尚未发表的手稿 PDF，获得诚实、建设性的审阅。审阅者会说明如何修改，而不会替您重写文字，除非您明确要求提供示例。
 
+- **图表感知分析（视觉）** — 从 PDF 中渲染图表，并由 DeepSeek 视觉模型（`deepseek-v4-flash-vision-exp`）读取，逐字转录图注、坐标轴标签、单位和曲线趋势（不做解读）。这些中性描述随后传给文本模型，使其能结合正文分析图表，而不再仅凭图注猜测。
+
 - **多项目对话** — 将对话组织为命名项目。在研究主题之间自由切换，上下文不丢失。所有历史记录持久化保存并可重新加载。
 
 - **Markdown 显示** — 完整的对话历史和论文分析以格式化 Markdown 渲染，支持 LaTeX 公式在 Jupyter 中正确显示。
@@ -184,8 +189,8 @@ python app.py
 它会在 `http://127.0.0.1:7860` 启动一个 Gradio 应用，包含六个标签页：
 
 - **对话（Chat）** — 提问物理问题（流式回复、LaTeX 公式渲染、自动保存 MATLAB 文件）。
-- **分析论文（Analyze Paper）** — 拖拽已发表论文 PDF 进行结构化综述。
-- **审阅手稿（Review Manuscript）** — 拖拽未发表草稿进行审阅。
+- **分析论文（Analyze Paper）** — 拖拽已发表论文 PDF 进行结构化综述（图表由视觉模型读取）。
+- **审阅手稿（Review Manuscript）** — 拖拽未发表草稿进行审阅（图表由视觉模型读取）。
 - **数据库（Database）** — 浏览论文/手稿：查看、加载到对话、导出 BibTeX、删除或重新分析 / 重新审阅。
 - **项目（Projects）** — 切换或创建命名项目（对话历史按项目保存）。
 - **设置（Settings）** — 在英文与中文界面之间切换。
@@ -202,6 +207,7 @@ python app.py
 |---------|-------------|
 | `analyze_paper()` | 分析 PDF（交互式粘贴路径） |
 | `analyze_manuscript()` | 审阅未发表的手稿 PDF |
+| `describe_figures('path.pdf')` | 通过视觉模型提取图表描述 |
 | `new_project('name')` | 创建新项目 |
 | `commands('keyword')` | 列出命令及说明（可按关键词筛选） |
 | `switch_project('name')` | 切换到已有项目（支持部分名称自动补全） |
